@@ -2,41 +2,40 @@ import os
 import json
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# Load the pre-trained tokenizer and model from the specified directory
-# The model is assumed to be stored locally at /model (pre-downloaded)
+# Load tokenizer and model from local directory (/model)
 tokenizer = AutoTokenizer.from_pretrained("/model")
 model = AutoModelForSeq2SeqLM.from_pretrained("/model")
 
-# Retrieve the input text from the environment variable
-# If INPUT_TEXT is not provided, it defaults to "Default input text"
+# Retrieve input text from environment variable (defaults to "Default input text" if not set)
 INPUT_TEXT = os.getenv("input_text", "Default input text").strip()
 
-# Tokenize the input text for model processing
-# The prefix "paraphrase:" tells the model we want a paraphrased output
+# Tokenize input text for the model
 input_ids = tokenizer(
-    f"paraphrase: {INPUT_TEXT}",  # Formatted input prompt
-    return_tensors="pt",  # Return PyTorch tensors for model compatibility
-    max_length=128,  # Limit the input length to prevent excessive memory usage
-    truncation=True  # Ensures input is truncated if it exceeds max_length
+    f"paraphrase: {INPUT_TEXT}",  # Adds "paraphrase:" prefix to indicate task
+    return_tensors="pt",  # Returns PyTorch tensors (needed for model processing)
+    max_length=128,  # Limits tokenized input length to prevent excessive memory usage
+    truncation=True  # Truncate if input exceeds max_length
 ).input_ids
 
-# Generate multiple paraphrases using sampling-based text generation
+# Generate paraphrased text using sampling-based text generation
 outputs = model.generate(
-    input_ids,
-    num_return_sequences=3,  # Generate 3 paraphrased versions of the input
-    max_length=128,  # Ensure the generated text does not exceed this length
-    do_sample=True,  # Enable sampling for diverse outputs
-    top_k=50,  # Consider the top 50 possible words at each step
-    top_p=0.95,  # Nucleus sampling (keep most probable words, sum of probs ≤ 0.95)
-    temperature=1.1  # Adjust randomness; higher = more creative
+    input_ids,  # Tokenized input for the model
+    num_return_sequences=3,  # Generate 3 different paraphrased outputs
+    max_length=128,  # Max length for generated text (prevents overflow)
+    do_sample=True,  # Enables non-deterministic output generation
+    top_k=50,  # Considers only the top 50 word choices at each step
+    top_p=0.95,  # Nucleus sampling: retains words until cumulative probability ≥ 0.95
+    temperature=1.1  # Controls randomness: higher values = more diverse output
 )
 
-# Decode the generated outputs into human-readable text
-paraphrases = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+# Decode generated outputs into readable text
+paraphrases = [
+    tokenizer.decode(output, skip_special_tokens=True) for output in outputs
+]
 
-# Ensure the /outputs directory exists to store the generated results
+# Ensure output directory exists
 os.makedirs("/outputs", exist_ok=True)
 
-# Save the paraphrases to a JSON file
+# Save input and paraphrased results to a JSON file
 with open("/outputs/result.json", "w") as f:
     json.dump({"input_text": INPUT_TEXT, "paraphrases": paraphrases}, f, indent=2)
